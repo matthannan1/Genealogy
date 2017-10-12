@@ -64,6 +64,8 @@ def make_nodeDict(node_Data):
     # Set counter to 0
     count = 0
     node_Dict = {}
+    # Give types to the columns
+    col_types = [str, str, str, str, float, float, int, str, str, str, str, str, str]
     # Start to cycle through nodes list
     for nodeRow in node_Data:
         nodeDictEntry = {}
@@ -72,6 +74,8 @@ def make_nodeDict(node_Data):
         del nodeRow[11]
         # Break Ancestral string into Ancestral list
         nodeRow[8] = nodeRow[8].split('| ')
+        # Apply types to columns
+        nodeRow = tuple(convert(value) for convert, value in zip(col_types, nodeRow))
         # Zip together the field names and values to create Dictionary nodeDictEntry
         nodeDictEntry.update(dict(zip(nodeSubFields, nodeRow)))
         # Make icwList and append to nodeDictEntry
@@ -120,6 +124,8 @@ def makeCB(cb_Data, nodeID):
     # Pop off first row (the headers)
     cbList.pop(0) # Now we have Headers and cbs objects
     #cbDictEntry = {}
+    # Give types to the columns
+    col_types = [int, int, int, float, int]
     # Start to cycle through cbs list
     for cbListRow in cbList:
         cbDictEntry = {}
@@ -127,6 +133,8 @@ def makeCB(cb_Data, nodeID):
         cbID = cbListRow[5]
         # Remove last column, the match Kit ID
         cbListRow.pop(5)
+        # Apply types to columns
+        cbListRow = tuple(convert(value) for convert, value in zip(col_types, cbListRow))
         # Make cbList and append to cbDictEntry
         if cbID == nodeID:
             # Zip together the field names and values to create Dictionary cbDictEntry
