@@ -23,6 +23,7 @@ import getpass
 import time
 import os
 import csv
+import argparse
 from gooey import Gooey, GooeyParser
 
 
@@ -80,28 +81,28 @@ def get_guids(raw_data):
         tests[i+1] = tester, guid
     return tests
 
-
+"""
 def get_credentials():
     # Username and password should be provided by user via input
     username = input("Ancestry username: ")
     # This should be masked
     password = getpass.getpass(prompt='Ancestry Password: ', stream=None)
     # Get max number of pages to scrape.
-    print("""
+    print("
 There are about 50 matches per page. The default sorting lists closer matches
 on the earlier pages. That means the more pages scanned, the more false
 positives will be brought in. Based on my results, things start getting
 really sketchy around page 25 to 30, so I have the default number of pages to
 capture as 30. This is 1500 matches, which is more than I will ever be
 concerned about.
-""")
+")
     user_max = input("How many pages of matches would you like to capture? ")
     if user_max == "":
         user_max = "30"
     user_max = int(user_max)
     print(user_max*50, "matches coming right up!")
     return username, password, user_max
-
+"""
 
 def harvest_matches(session, data, guid):
     for i in range(len(data['matchGroups'])):
@@ -153,7 +154,27 @@ def harvest_shared_matches(session, sm_url, match_guid):
 def main():
     # Gooey stuff
     parser = GooeyParser(description = "Gather AncestryDNA Matches")
-    parser.
+
+    username = parser.add_argument(
+        'username',
+        metavar='Ancestry User Name')
+
+    password = parser.add_argument(
+        'password',
+        metavar='Ancestry Password',
+        widget='PasswordField')
+
+    user_max = parser.add_argument(
+        'pages',
+        metavar='Number of match pages to gather',
+        help='1 page is about 50 matches. Default is 30 pages (~1500 matches).')
+    
+    if user_max == "":
+        user_max = "30"
+    max_pages = int(user_max)
+
+    args = parser.parse_args()
+    
 
     # Delete old files
     delete_old()
@@ -163,7 +184,7 @@ def main():
     make_data_file("edges.csv")
 
     # Login
-    username, password, max_pages = get_credentials()
+    # username, password, max_pages = get_credentials()
     payload = {"username": username,
                "password": password}
 
