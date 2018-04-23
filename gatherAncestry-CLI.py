@@ -90,9 +90,11 @@ def get_credentials():
 There are about 50 matches per page. The default sorting lists closer matches
 on the earlier pages. That means the more pages scanned, the more false
 positives will be brought in. Based on my results, things start getting
-really sketchy around page 25 to 30, so I have the default number of pages to
-capture as 30. This is 1500 matches, which is more than I will ever be
-concerned about.
+really sketchy around page 25 to 30, so I have the default number of pages
+to capture as 30. This is 1500 matches, which is more than I will ever be
+concerned about. Also, it takes about 30 seconds per page of (50) matches. 
+Sure, that sounds fast with only a few pages, but if you try to grab ALL of
+your matches, you are talking several hours.
 """)
     user_max = input("How many pages of matches would you like to capture? ")
     if user_max == "":
@@ -122,11 +124,16 @@ def harvest_matches(session, data, guid):
             # Get Shared Matches
             page = 1
             while page < 3:
+                # print("page:", page)
+                # Build shared matches URL
                 sm_url = str(prefix_url + guid + shared_matches_url_suffix1
                              + str(page) + shared_matches_url_suffix2
                              + match_guid)
+                # Does second page of matches exist?
                 second_page = harvest_shared_matches(session, sm_url,
                                                      match_guid)
+                # print("Second Page:",second_page)
+                # Code smell. Rough logic to increment or break.
                 if second_page and page < 3:
                     page = page + 1
                 else:
@@ -134,6 +141,8 @@ def harvest_matches(session, data, guid):
 
 
 def harvest_shared_matches(session, sm_url, match_guid):
+    # Grab the ICW data first, and add it to edges.csv
+    # print("sm_url:", sm_url)
     sm_data = get_json(session, sm_url)
     for mg in range(len(sm_data['matchGroups'])):
         for sm in range(len(sm_data['matchGroups'][mg]['matches'])):
@@ -142,6 +151,7 @@ def harvest_shared_matches(session, sm_url, match_guid):
             with open("edges.csv", "a", newline='') as e:
                 edges = csv.writer(e)
                 edges.writerow(icw)
+    # Then check for second page existance.            
     if sm_data['pageCount'] == 1:
         return False
     else:
@@ -177,15 +187,18 @@ def main():
         print()
         test_selection = int(input("Select the Test # that you want to gather \
 matches for: "))
-        guid = test_guids[test_selection][1]
+        test_guid = test_guids[test_selection][1]
 
         # Start to gather match data using number of pages variable
+        # Needs a test in here to see if there are as many pages as input. 
         print("Gathering match details. Please wait.")
         for page_number in range(1, max_pages+1):
-            test_url = str(prefix_url + guid + matches_url_suffix
+            print("Starting match page #:", page_number)
+            test_url = str(prefix_url + test_guid + matches_url_suffix
                            + str(page_number))
+            # print("test_url:", test_url)
             matches = get_json(session, test_url)
-            harvest_matches(session, matches, guid)
+            harvest_matches(session, matches, test_guid)
             time.sleep(1)
 
 
