@@ -23,6 +23,7 @@ import getpass
 import time
 import os
 import csv
+import pprint
 
 
 # URL data
@@ -64,6 +65,7 @@ def make_data_file(filename):
 def get_json(session, url):
     # Get the raw JSON for the tests
     raw = session.get(url).text
+    pprint.pprint(raw)
     # parse it into a dict
     data = json.loads(raw)
     return data
@@ -87,18 +89,19 @@ def get_credentials():
     password = getpass.getpass(prompt='Ancestry Password: ', stream=None)
     # Get max number of pages to scrape.
     print("""
-There are about 50 matches per page. The default sorting lists closer matches
-on the earlier pages. That means the more pages scanned, the more false
-positives will be brought in. Based on my results, things start getting
-really sketchy around page 25 to 30, so I have the default number of pages
-to capture as 30. This is 1500 matches, which is more than I will ever be
-concerned about. Also, it takes about 30 seconds per page of (50) matches. 
-Sure, that sounds fast with only a few pages, but if you try to grab ALL of
-your matches, you are talking several hours.
+There are about 50 matches per page. The default sorting lists closer
+matches on the earlier pages. That means the more pages scanned, the more
+false positives will be brought in. Based on my results, things start
+getting really sketchy around page 25 to 30. This is 1500 matches, which
+is more than I will ever be concerned about. Also, it takes about 30 seconds
+per page of (50) matches. Sure, that sounds fast with only a few pages,
+but if you try to grab "ALL" of your matches (1000 pages max), you are
+talking several hours.
 """)
-    user_max = input("How many pages of matches would you like to capture? ")
-    if user_max == "":
-        user_max = "30"
+    print("How many pages of matches would you like to capture?")
+    user_max = input("Enter a number, or All for all pages: ")
+    if user_max == "" or user_max.lower() == "all":
+        user_max = "1000"
     user_max = int(user_max)
     print(user_max*50, "matches coming right up!")
     return username, password, user_max
@@ -196,10 +199,16 @@ matches for: "))
             print("Starting match page #:", page_number)
             test_url = str(prefix_url + test_guid + matches_url_suffix
                            + str(page_number))
-            # print("test_url:", test_url)
+            print("test_url:", test_url)
             matches = get_json(session, test_url)
-            harvest_matches(session, matches, test_guid)
-            time.sleep(1)
+            # print(test_url)
+            # print(len(matches['matchGroups']))
+            if len(matches['matchGroups']) == 0:
+                page_number = max_pages + 2
+            else:    
+                harvest_matches(session, matches, test_guid)
+                time.sleep(1)
+        print("Match gathering complete.")        
 
 
 main()
