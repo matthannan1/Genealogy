@@ -65,7 +65,13 @@ def make_data_file(filename):
 def get_json(session, url):
     # Get the raw JSON for the tests
     # print(session.get(url))
-    raw = session.get(url).text
+    user_agent = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/36.0.1985.143 Safari/537.36'
+    headers = {'User-Agent': user_agent}
+    try:
+        raw = session.get(url, headers=headers).text
+    except:
+        time.sleep(2)
+        raw = session.get(url, headers=headers).text
     # pprint.pprint(raw)
     # parse it into a dict
     data = json.loads(raw)
@@ -201,11 +207,7 @@ matches for: "))
             test_url = str(prefix_url + test_guid + matches_url_suffix
                            + str(page_number))
             # print("test_url:", test_url)
-            try:
-                matches = get_json(session, test_url)
-            except json.decoder.JSONDecodeError:
-                time.sleep(2)
-                matches = get_json(session, test_url)
+            matches = get_json(session, test_url)
             print("matchGroups length:", len(matches['matchGroups']))
             if len(matches['matchGroups']) == 0:
                 break
