@@ -64,8 +64,9 @@ def make_data_file(filename):
 
 def get_json(session, url):
     # Get the raw JSON for the tests
+    # print(session.get(url))
     raw = session.get(url).text
-    pprint.pprint(raw)
+    # pprint.pprint(raw)
     # parse it into a dict
     data = json.loads(raw)
     return data
@@ -127,7 +128,7 @@ def harvest_matches(session, data, guid):
             # Get Shared Matches
             page = 1
             while page < 3:
-                # print("page:", page)
+                # print("Page:", page)
                 # Build shared matches URL
                 sm_url = str(prefix_url + guid + shared_matches_url_suffix1
                              + str(page) + shared_matches_url_suffix2
@@ -135,7 +136,6 @@ def harvest_matches(session, data, guid):
                 # Does second page of matches exist?
                 second_page = harvest_shared_matches(session, sm_url,
                                                      match_guid)
-                # print("Second Page:",second_page)
                 # Code smell. Rough logic to increment or break.
                 if second_page and page < 3:
                     page = page + 1
@@ -154,7 +154,7 @@ def harvest_shared_matches(session, sm_url, match_guid):
             with open("edges.csv", "a", newline='') as e:
                 edges = csv.writer(e)
                 edges.writerow(icw)
-    # Then check for second page existance.            
+    # Then check for second page existance.
     if sm_data['pageCount'] == 1:
         return False
     else:
@@ -185,7 +185,8 @@ def main():
         # Get the list of tests available
         test_guids = get_guids(data)
         print()
-        for k, v in test_guids.items():  # Print them out...work on formatting
+        # Print them out...work on formatting
+        for k, v in test_guids.items():
             print("Test", str(k) + ":", v[0], v[1])
         print()
         test_selection = int(input("Select the Test # that you want to gather \
@@ -193,22 +194,25 @@ matches for: "))
         test_guid = test_guids[test_selection][1]
 
         # Start to gather match data using number of pages variable
-        # Needs a test in here to see if there are as many pages as input. 
+        # Needs a test in here to see if there are as many pages as input.
         print("Gathering match details. Please wait.")
         for page_number in range(1, max_pages+1):
             print("Starting match page #:", page_number)
             test_url = str(prefix_url + test_guid + matches_url_suffix
                            + str(page_number))
-            print("test_url:", test_url)
-            matches = get_json(session, test_url)
-            # print(test_url)
-            # print(len(matches['matchGroups']))
+            # print("test_url:", test_url)
+            try:
+                matches = get_json(session, test_url)
+            except json.decoder.JSONDecodeError:
+                time.sleep(2)
+                matches = get_json(session, test_url)
+            print("matchGroups length:", len(matches['matchGroups']))
             if len(matches['matchGroups']) == 0:
-                page_number = max_pages + 2
-            else:    
+                break
+            else:
                 harvest_matches(session, matches, test_guid)
                 time.sleep(1)
-        print("Match gathering complete.")        
+        print("Match gathering complete.")
 
 
 main()
