@@ -19,16 +19,18 @@ Networks are terribly unreliable. The script was crashing out after getting empt
 replies. Trying out the requests_retry_session from here:
 https://www.peterbe.com/plog/best-practice-with-retries-with-requests
 
-"""
+""" 
 
 import requests
 import json
 import getpass
 import time
 import os
+import sys
 import csv
 import pprint
 import datetime
+import progressbar
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
 
@@ -47,7 +49,7 @@ def get_json(session, url):
     headers = {'User-Agent': user_agent}
     r = requests_retry_session(session).get(url, headers=headers)
     # debug
-    print("Raw encoding type:", r.encoding)
+    # print("Raw encoding type:", r.encoding)
     if r.encoding == None:
         time.sleep(2)
         r = requests_retry_session(session).get(url, headers=headers)   
@@ -112,6 +114,7 @@ matches (1000 pages max), you are talking several hours.
     if user_max == "" or user_max.lower() == "all":
         user_max = "1000"
     user_max = int(user_max)
+    print()
     print(user_max*50, "matches coming right up!")
     return user_max
 
@@ -240,9 +243,8 @@ matches for: "))
         
         # Start to gather match data using number of pages variable
         # Needs a test in here to see if there are as many pages as input.
-        print("Gathering match details. Please wait.")
-        for page_number in range(1, max_pages+1):
-            print("Starting match page #:", page_number)
+        print("Gathering match details. Go do something productive.")
+        for page_number in progressbar.progressbar(range(1, max_pages+1)):
             test_url = str(prefix_url + test_guid + matches_url_suffix
                            + str(page_number))
             matches = get_json(session, test_url)
