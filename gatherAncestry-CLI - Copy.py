@@ -41,6 +41,10 @@ prefix_url = "https://dnahomeaws.ancestry.com/dna/secure/tests/"
 matches_url_suffix = "/matches?filterBy=ALL&sortBy=RELATIONSHIP&page="
 shared_matches_url_suffix1 = "/matchesInCommon?filterBy=ALL&sortBy=RELATIONSHIP&page="
 shared_matches_url_suffix2 = "&matchTestGuid="
+surname_url_prefix = "https://www.ancestry.com/dna/secure/tests/"
+surname_url_suffix = "/matches?filterBy=TREEDATA&searchName="
+surname_url_suffix2 = "&page="
+
 
 
 def get_json(session, url):
@@ -97,6 +101,12 @@ def get_guids(raw_data):
     return tests    
 
 
+def get_test_type():
+    # Full search of surname specific search?
+    test_type = input("Full database search, or Surname specific? [F or S] ")
+    return test_type
+
+
 def get_max_pages():
     # Get max number of pages to scrape.
     print("""
@@ -117,6 +127,11 @@ matches (1000 pages max), you are talking several hours.
     print()
     print(user_max*50, "matches coming right up!")
     return user_max
+
+
+def get_surname():
+    search_surname = input("What surname would you like to search for? ")
+    return search_surname
 
 
 def delete_old(prefix):
@@ -147,6 +162,52 @@ def make_data_file(prefix, type):
         data_file = csv.writer(f)
         data_file.writerow(header)
     return filename
+
+
+def gather_matches(session, test_guid, nodes_file, edges_file, max_pages, test_url):
+    # Start to gather match data using number of pages variable
+    # Needs a test in here to see if there are as many pages as input.
+    # print("Gathering match details. Go do something productive.")
+    for page_number in progressbar.progressbar(range(1, max_pages+1)):
+        #print("\nPage number = ", page_number)
+        new_url = str(test_url + str(page_number))
+        #print(new_url)
+        matches = get_json(session, new_url)
+        #print(len(matches['matchGroups']))
+        if len(matches['matchGroups']) == 0:
+            break
+        else:
+            harvest_matches(session, matches, test_guid, nodes_file, edges_file)
+            time.sleep(1)
+    print("\nMatch gathering complete.")
+
+
+def edges2node(edges_file, nodes_file, test_guid, session):
+    with open(edges_file, 'r') as edge_file:
+        edge_reader = csv.reader(edge_file)
+        # This skips the first row of the CSV file.
+        next(edge_reader)
+        for edge_row in edge_reader:
+            node_file = open(nodes_file, 'r+')
+            if edge_row[1] in node_file.read():    
+                node_file.close()
+            else:
+                edgenode_url = surname_url_prefix + test_guid + "/matches/" + edge_row[1]
+                data = get_json(session, edgenode_url)
+                match_name = data['matchTestDisplayName']
+                match_guid = data['testGuid']
+                match_starred = data['starred']
+                match_confidence = data['confidence']
+                match_cms = data['sharedCentimorgans']
+                match_segments = data['sharedSegments']
+                match_notes = data['note']
+                match_starred = data['starred']
+                match_details = (match_name, match_guid, match_starred,
+                                match_confidence, match_cms, match_segments,
+                                match_notes)
+                with open(nodes_file, "a", newline='') as n:
+                    nodes = csv.writer(n)
+                    nodes.writerow(match_details)
 
 
 def harvest_matches(session, data, guid, nodes_file, edges_file):
@@ -230,9 +291,6 @@ matches for: "))
         test_taker = test_guids[test_selection][0].replace(' ', '')
         test_guid = test_guids[test_selection][1]
 
-        # Get number of pages to retrieve
-        max_pages = get_max_pages()
-
         # Deal with files
         filename_prefix = str(datetime.date.today()) + "_" + test_taker + "_"
         # Delete old files
@@ -241,19 +299,34 @@ matches for: "))
         nodes_file = make_data_file(filename_prefix, "nodes.csv")
         edges_file = make_data_file(filename_prefix, "edges.csv")
         
-        # Start to gather match data using number of pages variable
-        # Needs a test in here to see if there are as many pages as input.
-        print("Gathering match details. Go do something productive.")
-        for page_number in progressbar.progressbar(range(1, max_pages+1)):
-            test_url = str(prefix_url + test_guid + matches_url_suffix
-                           + str(page_number))
-            matches = get_json(session, test_url)
-            if len(matches['matchGroups']) == 0:
-                break
-            else:
-                harvest_matches(session, matches, test_guid, nodes_file, edges_file)
-                time.sleep(1)
-        print("\nMatch gathering complete.\n")
+        # Get test type: Full or surname search
+        test_type = get_test_type()
+
+        # Run it, Cuz
+        print("Gathering match details.")
+        if test_type.lower() == "f":
+            # Get number of pages to retrieve
+            max_pages = get_max_pages()
+            # Build the URL
+            test_url = str(prefix_url + test_guid + matches_url_suffix)
+            print("Go do something productive.")
+        elif test_type.lower() == "s":
+            # Get the surname
+            surname = get_surname()
+            # Build the URL
+            max_pages = 50
+            test_url = str(surname_url_prefix + test_guid + surname_url_suffix + surname + surname_url_suffix2)
+            print("Sit tight. This shouldn't take too long.")
+        gather_matches(session, test_guid, nodes_file, edges_file, max_pages, test_url)
+        # Circle back through, gathering nodes that appear on edge list but do not specifically 
+        # list the surname on their tree, or, more than likely, do not have a tree.
+        if test_type.lower() == "s":
+            print("""
+Now to go through the Shared Match list looking for matches
+without trees. No tree = no surnames to search for, but they
+show up as Shared Matches. Pretty sneaky, Sis.""")
+            edges2node(edges_file, nodes_file, test_guid, session)
+            print("All set.")
 
 
 main()
