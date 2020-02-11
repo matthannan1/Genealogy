@@ -54,6 +54,7 @@ def delete_old(prefix):
             input("Press any key after you close the file.")
 
 
+
 def get_login():
     test_taker = input("FTDNA Test Kit ID: ")
     psswrd = getpass.getpass("Password: ")
@@ -150,6 +151,7 @@ with requests.Session() as session:
         pbar = enlighten.Counter(total=int(count), desc="Collecting cousin data", unit='cousins')
         # Next, extract cousin kitEncrypted value and loop
         for cousin in cousins["data"]:
+            # print(cousin["name"])
             nodeLine = (
                 str(cousin["resultId2"])
                 + ","
@@ -175,7 +177,7 @@ with requests.Session() as session:
                 + ","
                 + str(cousin["noteValue"]).replace("\n", " ").replace(",", " ")
                 + ","
-                + cousin["userSurnames"].replace(",", "_")
+                + cousin["userSurnames"].replace(",", "_").replace("\"","")
                 + "\n"
             )
             nodes.write(nodeLine)
@@ -192,7 +194,12 @@ with requests.Session() as session:
                 cookies=cookies,
                 data=data4,
             )
-            icwList = icwData.json()
+            try:
+                icwList = icwData.json()
+            except json.decoder.JSONDecodeError:
+                pbar.update()
+                continue
+
             #pprint.pprint(icwList)
             #with open("icwList.txt", "w") as iL:
             #    json.dump(icwList, iL)
@@ -212,3 +219,4 @@ end = time.time()
 print()
 print("Complete.")
 print(((end-start)/60)/60)
+
