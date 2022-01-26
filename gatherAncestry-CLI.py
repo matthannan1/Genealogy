@@ -38,7 +38,7 @@ from urllib3.util import Retry
 
 
 # URL data
-login_url = "https://www.ancestry.com/account/signin"
+login_url = "https://www.ancestry.com/account/signin/frame/authenticate"
 prefix_url = "https://www.ancestry.com/dna/secure/tests/"
 matches_url_suffix = "/matches?filterBy=ALL&sortBy=RELATIONSHIP&page="
 shared_matches_url_suffix1 = "/matchesInCommon?filterBy=ALL&sortBy=RELATIONSHIP&page="
@@ -265,7 +265,7 @@ def harvest_shared_matches(session, sm_url, match_guid, edges_file):
 def main():
     # Login
     username, password = get_credentials()
-    credentials = json.dumps({"username": username, "password": password})
+    credentials = json.dumps({"password": password, "username": username})
 
     AUTH_HEADERS = {
         "Content-Type": "application/json",
@@ -278,7 +278,12 @@ def main():
 
     # Start Session (the big loop)
     with session_requests as session:
+        # Response status code is misleading, and a red herring. It will produce 4xx
+        # if request headers and/or URL are wrong. However, a properly formulated request 
+        # with INVALID CREDENTIALS will always return 200. To validate authentication
+        # really succeeded, perform a GET request against DNA matches.
         session.post(login_url, data=credentials)
+
         data = get_json(session, prefix_url)
 
         # Get the list of tests available as a dict
