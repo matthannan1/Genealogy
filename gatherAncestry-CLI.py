@@ -30,9 +30,7 @@ import json
 import getpass
 import time
 import os
-import sys
 import csv
-import pprint
 import datetime
 import progressbar
 from requests.adapters import HTTPAdapter
@@ -40,12 +38,11 @@ from urllib3.util import Retry
 
 
 # URL data
-login_url = "https://www.ancestry.com/account/signin"
-prefix_url = "https://dnahomeaws.ancestry.com/dna/secure/tests/"
+login_url = "https://www.ancestry.com/account/signin/frame/authenticate"
+prefix_url = "https://www.ancestry.com/dna/secure/tests/"
 matches_url_suffix = "/matches?filterBy=ALL&sortBy=RELATIONSHIP&page="
 shared_matches_url_suffix1 = "/matchesInCommon?filterBy=ALL&sortBy=RELATIONSHIP&page="
 shared_matches_url_suffix2 = "&matchTestGuid="
-surname_url_prefix = "https://www.ancestry.com/dna/secure/tests/"
 surname_url_suffix = "/matches?filterBy=TREEDATA&searchName="
 surname_url_suffix2 = "&page="
 surname = None
@@ -54,12 +51,11 @@ surname = None
 
 def get_json(session, url):
     # Get the raw JSON for the tests
-    user_agent = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/36.0.1985.143 Safari/537.36'
-    headers = {'User-Agent': user_agent}
-    r = requests_retry_session(session).get(url, headers=headers)
+    r = requests_retry_session(session).get(url)
+
     if r.encoding == None:
         time.sleep(2)
-        r = requests_retry_session(session).get(url, headers=headers)   
+        r = requests_retry_session(session).get(url)   
     raw = r.text
     # parse it into a dict
     data = json.loads(raw)
@@ -72,6 +68,7 @@ def requests_retry_session(session,
                            status_forcelist=(500, 502, 504)
     ):
     session = session or requests.Session()
+
     retry = Retry(
         total=retries,
         read=retries,
@@ -89,7 +86,7 @@ def get_credentials():
     # Username and password should be provided by user via input
     username = input("Ancestry username: ")
     # This should be masked
-    password = getpass.getpass(prompt='Ancestry Password: ', stream=None)
+    password = getpass.getpass(prompt='Ancestry password: ', stream=None)
     return username, password
 
 
@@ -196,7 +193,7 @@ def edges2node(edges_file, nodes_file, test_guid, session):
             if edge_row[1] in node_file.read():    
                 node_file.close()
             else:
-                edgenode_url = surname_url_prefix + test_guid + "/matches/" + edge_row[1]
+                edgenode_url = prefix_url + test_guid + "/matches/" + edge_row[1]
                 data = get_json(session, edgenode_url)
                 match_name = data['matchTestDisplayName']
                 match_guid = data['testGuid']
@@ -268,15 +265,25 @@ def harvest_shared_matches(session, sm_url, match_guid, edges_file):
 def main():
     # Login
     username, password = get_credentials()
-    payload = {"username": username,
-               "password": password}
+    credentials = json.dumps({"password": password, "username": username})
+
+    AUTH_HEADERS = {
+        "Content-Type": "application/json",
+        "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 15_2_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.2 Mobile/15E148 Safari/604.1"
+    }
 
     # Create session object
     session_requests = requests.session()
+    session_requests.headers.update(AUTH_HEADERS)
 
     # Start Session (the big loop)
     with session_requests as session:
-        session.post(login_url, data=payload)
+        # Response status code is misleading, and a red herring. It will produce 4xx
+        # if request headers and/or URL are wrong. However, a properly formulated request 
+        # with INVALID CREDENTIALS will always return 200. To validate authentication
+        # really succeeded, perform a GET request against DNA matches.
+        session.post(login_url, data=credentials)
+
         data = get_json(session, prefix_url)
 
         # Get the list of tests available as a dict
@@ -311,7 +318,7 @@ matches for: "))
             surname = get_surname()
             # Build the URL
             max_pages = 50
-            test_url = str(surname_url_prefix + test_guid + surname_url_suffix + surname + surname_url_suffix2)
+            test_url = str(prefix_url + test_guid + surname_url_suffix + surname + surname_url_suffix2)
             print("Sit tight. This shouldn't take too long.")
 
         # Deal with files
